@@ -3,7 +3,7 @@ import type { TodayData } from './types'
 
 export function composeMessage(data: TodayData, now: number) {
   const { tasks, events, habits } = data
-  const openTasks = tasks.filter((t) => !t.done)
+  const openTasks = tasks.filter((t) => !t.done && !t.hiddenFromToday)
   const carried = openTasks.filter((t) => t.overdueSince).length
   const habitsLeft = habits.filter((h) => !h.done).length
 

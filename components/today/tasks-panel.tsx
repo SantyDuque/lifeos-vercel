@@ -1,7 +1,19 @@
 'use client'
 
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
-import { ArrowUpToLine, Check, ChevronDown, CornerDownLeft, History, Pencil, Plus, Trash2, X } from 'lucide-react'
+import {
+  ArrowUpToLine,
+  Check,
+  ChevronDown,
+  CornerDownLeft,
+  EyeOff,
+  History,
+  Pencil,
+  Plus,
+  Trash2,
+  Undo2,
+  X,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { capitalize, numberWord } from '@/lib/today/time'
 import type { Area, Task } from '@/lib/today/types'
@@ -23,9 +35,11 @@ export function TasksPanel({ tasks, actions, className }: { tasks: Task[]; actio
   const todays = tasks.filter((t) => !t.overdueSince)
   const open = todays.filter((t) => !t.done)
   const done = tasks.filter((t) => t.done)
-  const overdue = tasks.filter((t) => t.overdueSince && !t.done)
+  const overdue = tasks.filter((t) => t.overdueSince && !t.done && !t.hiddenFromToday)
+  const setAside = tasks.filter((t) => t.hiddenFromToday && !t.done)
   const [showDone, setShowDone] = useState(false)
   const [showOverdue, setShowOverdue] = useState(false)
+  const [showSetAside, setShowSetAside] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -87,7 +101,13 @@ export function TasksPanel({ tasks, actions, className }: { tasks: Task[]; actio
             <div id="overdue-list" className="px-4 pb-3">
               <ul className="border-t border-warm/10 pt-1">
                 {overdue.map((t) => (
-                  <TaskRow key={t.id} task={t} actions={actions} onBringToToday={() => actions.bringToToday(t.id)} />
+                  <TaskRow
+                    key={t.id}
+                    task={t}
+                    actions={actions}
+                    onBringToToday={() => actions.bringToToday(t.id)}
+                    onHide={() => actions.hideFromToday(t.id)}
+                  />
                 ))}
               </ul>
               {overdue.length > 1 && (
@@ -129,6 +149,34 @@ export function TasksPanel({ tasks, actions, className }: { tasks: Task[]; actio
             <TaskRow key={t.id} task={t} actions={actions} />
           ))}
         </ul>
+      )}
+
+      {setAside.length > 0 && (
+        <div className="mt-5 border-t border-hairline pt-4">
+          <button
+            type="button"
+            onClick={() => setShowSetAside((v) => !v)}
+            aria-expanded={showSetAside}
+            aria-controls="set-aside-list"
+            className="-mx-2 flex items-center gap-2 rounded-full px-2 py-1 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ChevronDown className={cn('size-3.5 transition-transform duration-300', !showSetAside && '-rotate-90')} aria-hidden />
+            Set aside
+            <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] tabular-nums">{setAside.length}</span>
+          </button>
+          {showSetAside && (
+            <div id="set-aside-list">
+              <p className="mt-2 text-[12px] leading-relaxed text-subtle">
+                Hidden from today, still kept. Bring one back whenever it fits.
+              </p>
+              <ul className="mt-1">
+                {setAside.map((t) => (
+                  <TaskRow key={t.id} task={t} actions={actions} onRestore={() => actions.restoreToToday(t.id)} />
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
 
       {done.length > 0 && (
@@ -238,7 +286,19 @@ function AddTaskForm({
   )
 }
 
-function TaskRow({ task, actions, onBringToToday }: { task: Task; actions: TodayActions; onBringToToday?: () => void }) {
+function TaskRow({
+  task,
+  actions,
+  onBringToToday,
+  onHide,
+  onRestore,
+}: {
+  task: Task
+  actions: TodayActions
+  onBringToToday?: () => void
+  onHide?: () => void
+  onRestore?: () => void
+}) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(task.title)
   const [completing, setCompleting] = useState(false)
@@ -309,11 +369,8 @@ function TaskRow({ task, actions, onBringToToday }: { task: Task; actions: Today
             {task.title}
           </p>
         )}
-        {(task.area || task.overdueSince) && !editing && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-            {task.area && <AreaTag area={task.area} />}
-            {task.overdueSince && <span className="text-[12px] text-warm/80">From {task.overdueSince.toLowerCase()}</span>}
-          </div>
+        {task.overdueSince && !editing && (
+          <p className="mt-1.5 text-[12px] text-warm/80">From {task.overdueSince.toLowerCase()}</p>
         )}
       </div>
 
@@ -327,6 +384,31 @@ function TaskRow({ task, actions, onBringToToday }: { task: Task; actions: Today
             >
               Today
               <span className="sr-only">: move {task.title} to today</span>
+            </button>
+          )}
+          {onHide && (
+            <button
+              type="button"
+              onClick={onHide}
+              title="Hide from Today — it stays in Set aside"
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium text-subtle transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
+            >
+              <EyeOff className="size-3.5" aria-hidden />
+              <span className="hidden sm:inline">Hide</span>
+              <span className="sr-only">
+                <span className="sm:hidden">Hide</span> {task.title} from Today
+              </span>
+            </button>
+          )}
+          {onRestore && (
+            <button
+              type="button"
+              onClick={onRestore}
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium text-primary transition-colors hover:bg-primary/10"
+            >
+              <Undo2 className="size-3.5" aria-hidden />
+              Restore
+              <span className="sr-only">: show {task.title} in Today again</span>
             </button>
           )}
           {!task.done && (

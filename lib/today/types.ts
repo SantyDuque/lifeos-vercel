@@ -18,6 +18,8 @@ export interface Task {
   area?: Area
   /** Human label for when the task was originally due, e.g. "Yesterday". Present only for carried-over tasks. */
   overdueSince?: string
+  /** Set aside from the Today view without completing or deleting it. */
+  hiddenFromToday?: boolean
 }
 
 export interface CalendarEvent {

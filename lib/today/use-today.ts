@@ -11,8 +11,10 @@ type Action =
   | { type: 'editTask'; id: string; title: string }
   | { type: 'deleteTask'; id: string }
   | { type: 'bringToToday'; id?: string }
+  | { type: 'setHiddenFromToday'; id: string; hidden: boolean }
   | { type: 'toggleHabit'; id: string }
   | { type: 'addEvent'; event: Omit<CalendarEvent, 'id'> }
+  | { type: 'updateEvent'; id: string; event: Omit<CalendarEvent, 'id'> }
   | { type: 'saveCheckIn'; checkIn: CheckIn }
 
 const uid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Math.random()))
@@ -34,8 +36,22 @@ function reducer(state: TodayData | null, action: Action): TodayData | null {
       return {
         ...state,
         tasks: state.tasks.map((t) =>
-          !action.id || t.id === action.id ? { ...t, overdueSince: undefined } : t,
+          (!action.id && !t.hiddenFromToday) || t.id === action.id
+            ? { ...t, overdueSince: undefined, hiddenFromToday: undefined }
+            : t,
         ),
+      }
+    case 'setHiddenFromToday':
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => (t.id === action.id ? { ...t, hiddenFromToday: action.hidden || undefined } : t)),
+      }
+    case 'updateEvent':
+      return {
+        ...state,
+        events: state.events
+          .map((e) => (e.id === action.id ? { ...action.event, id: e.id } : e))
+          .sort((a, b) => a.start - b.start),
       }
     case 'toggleHabit':
       return { ...state, habits: state.habits.map((h) => (h.id === action.id ? { ...h, done: !h.done } : h)) }
@@ -78,8 +94,11 @@ export function useToday() {
       editTask: (id: string, title: string) => dispatch({ type: 'editTask', id, title }),
       deleteTask: (id: string) => dispatch({ type: 'deleteTask', id }),
       bringToToday: (id?: string) => dispatch({ type: 'bringToToday', id }),
+      hideFromToday: (id: string) => dispatch({ type: 'setHiddenFromToday', id, hidden: true }),
+      restoreToToday: (id: string) => dispatch({ type: 'setHiddenFromToday', id, hidden: false }),
       toggleHabit: (id: string) => dispatch({ type: 'toggleHabit', id }),
       addEvent: (event: Omit<CalendarEvent, 'id'>) => dispatch({ type: 'addEvent', event }),
+      updateEvent: (id: string, event: Omit<CalendarEvent, 'id'>) => dispatch({ type: 'updateEvent', id, event }),
       saveCheckIn: (checkIn: CheckIn) => dispatch({ type: 'saveCheckIn', checkIn }),
     }),
     [],
